@@ -1,0 +1,22 @@
+{
+  "metadata": {
+    "name": "Missing bus voltage level"
+  },
+  "bus": [
+    {
+      "id": "GRID_110"
+    },
+    {
+      "id": "MV_20",
+      "vn_kv": 20.0
+    }
+  ],
+  "grid_connection": [
+    {
+      "id": "GRID",
+      "bus": "GRID_110",
+      "vm_pu": 1.0
+    }
+  ]
+}
+

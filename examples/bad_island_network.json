@@ -1,0 +1,47 @@
+{
+  "metadata": {
+    "name": "Disconnected island"
+  },
+  "bus": [
+    {
+      "id": "GRID_110",
+      "vn_kv": 110.0
+    },
+    {
+      "id": "ISLAND_A",
+      "vn_kv": 20.0
+    },
+    {
+      "id": "ISLAND_B",
+      "vn_kv": 20.0
+    }
+  ],
+  "grid_connection": [
+    {
+      "id": "GRID",
+      "bus": "GRID_110",
+      "vm_pu": 1.0
+    }
+  ],
+  "line": [
+    {
+      "id": "L_ISLAND",
+      "from_bus": "ISLAND_A",
+      "to_bus": "ISLAND_B",
+      "length_km": 1.0,
+      "r_ohm_per_km": 0.2,
+      "x_ohm_per_km": 0.08,
+      "c_nf_per_km": 210.0,
+      "max_i_ka": 0.2
+    }
+  ],
+  "load": [
+    {
+      "id": "LD_ISLAND",
+      "bus": "ISLAND_B",
+      "p_mw": 0.5,
+      "q_mvar": 0.1
+    }
+  ]
+}
+

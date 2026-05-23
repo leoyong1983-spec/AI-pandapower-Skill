@@ -1,0 +1,77 @@
+{
+  "metadata": {
+    "name": "Valid but iteration-limited non-convergent network"
+  },
+  "settings": {
+    "sn_mva": 100.0,
+    "frequency_hz": 50.0,
+    "voltage_limits_pu": {
+      "min": 0.95,
+      "max": 1.05
+    },
+    "thermal_limit_percent": 100.0,
+    "runpp": {
+      "algorithm": "nr",
+      "max_iteration": 0,
+      "init": "flat",
+      "enforce_q_lims": false
+    }
+  },
+  "bus": [
+    {
+      "id": "GRID_110",
+      "vn_kv": 110.0
+    },
+    {
+      "id": "MV_20",
+      "vn_kv": 20.0
+    },
+    {
+      "id": "LOAD_BUS",
+      "vn_kv": 20.0
+    }
+  ],
+  "grid_connection": [
+    {
+      "id": "GRID",
+      "bus": "GRID_110",
+      "vm_pu": 1.0
+    }
+  ],
+  "transformer": [
+    {
+      "id": "T_GRID_MV",
+      "hv_bus": "GRID_110",
+      "lv_bus": "MV_20",
+      "sn_mva": 10.0,
+      "vn_hv_kv": 110.0,
+      "vn_lv_kv": 20.0,
+      "vk_percent": 10.0,
+      "vkr_percent": 0.6,
+      "pfe_kw": 0.0,
+      "i0_percent": 0.0,
+      "shift_degree": 0.0
+    }
+  ],
+  "line": [
+    {
+      "id": "L_LOAD",
+      "from_bus": "MV_20",
+      "to_bus": "LOAD_BUS",
+      "length_km": 8.0,
+      "r_ohm_per_km": 0.65,
+      "x_ohm_per_km": 0.1,
+      "c_nf_per_km": 210.0,
+      "max_i_ka": 0.2
+    }
+  ],
+  "load": [
+    {
+      "id": "LD_LOAD_BUS",
+      "bus": "LOAD_BUS",
+      "p_mw": 4.0,
+      "q_mvar": 1.2
+    }
+  ]
+}
+

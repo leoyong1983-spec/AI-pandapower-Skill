@@ -1,0 +1,35 @@
+{
+  "metadata": {
+    "name": "Unknown bus reference"
+  },
+  "bus": [
+    {
+      "id": "GRID_110",
+      "vn_kv": 110.0
+    },
+    {
+      "id": "MV_20",
+      "vn_kv": 20.0
+    }
+  ],
+  "grid_connection": [
+    {
+      "id": "GRID",
+      "bus": "GRID_110",
+      "vm_pu": 1.0
+    }
+  ],
+  "line": [
+    {
+      "id": "L_BAD",
+      "from_bus": "MV_20",
+      "to_bus": "UNKNOWN_BUS",
+      "length_km": 1.0,
+      "r_ohm_per_km": 0.2,
+      "x_ohm_per_km": 0.08,
+      "c_nf_per_km": 210.0,
+      "max_i_ka": 0.2
+    }
+  ]
+}
+

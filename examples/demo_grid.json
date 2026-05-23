@@ -1,0 +1,191 @@
+{
+  "metadata": {
+    "name": "8-bus radial demo with overload and undervoltage",
+    "purpose": "Acceptance demo for pandapower AI automation"
+  },
+  "settings": {
+    "sn_mva": 100.0,
+    "frequency_hz": 50.0,
+    "voltage_limits_pu": {
+      "min": 0.95,
+      "max": 1.05
+    },
+    "thermal_limit_percent": 100.0,
+    "runpp": {
+      "algorithm": "nr",
+      "max_iteration": 30,
+      "init": "auto",
+      "enforce_q_lims": false
+    }
+  },
+  "bus": [
+    {
+      "id": "GRID_110",
+      "name": "External Grid 110 kV",
+      "vn_kv": 110.0
+    },
+    {
+      "id": "MV_20",
+      "name": "Primary MV Bus",
+      "vn_kv": 20.0
+    },
+    {
+      "id": "B03",
+      "vn_kv": 20.0
+    },
+    {
+      "id": "B04",
+      "vn_kv": 20.0
+    },
+    {
+      "id": "B05",
+      "vn_kv": 20.0
+    },
+    {
+      "id": "B06",
+      "vn_kv": 20.0
+    },
+    {
+      "id": "B07",
+      "vn_kv": 20.0
+    },
+    {
+      "id": "B08",
+      "vn_kv": 20.0
+    }
+  ],
+  "grid_connection": [
+    {
+      "id": "GRID",
+      "bus": "GRID_110",
+      "vm_pu": 1.0,
+      "va_degree": 0.0
+    }
+  ],
+  "transformer": [
+    {
+      "id": "T_GRID_MV",
+      "hv_bus": "GRID_110",
+      "lv_bus": "MV_20",
+      "sn_mva": 6.0,
+      "vn_hv_kv": 110.0,
+      "vn_lv_kv": 20.0,
+      "vk_percent": 10.0,
+      "vkr_percent": 0.6,
+      "pfe_kw": 0.0,
+      "i0_percent": 0.0,
+      "shift_degree": 0.0,
+      "max_loading_percent": 100.0
+    }
+  ],
+  "line": [
+    {
+      "id": "L_MV_B03",
+      "from_bus": "MV_20",
+      "to_bus": "B03",
+      "length_km": 4.0,
+      "r_ohm_per_km": 0.65,
+      "x_ohm_per_km": 0.1,
+      "c_nf_per_km": 210.0,
+      "max_i_ka": 0.08,
+      "max_loading_percent": 100.0
+    },
+    {
+      "id": "L_B03_B04",
+      "from_bus": "B03",
+      "to_bus": "B04",
+      "length_km": 3.0,
+      "r_ohm_per_km": 0.65,
+      "x_ohm_per_km": 0.1,
+      "c_nf_per_km": 210.0,
+      "max_i_ka": 0.08,
+      "max_loading_percent": 100.0
+    },
+    {
+      "id": "L_B04_B05",
+      "from_bus": "B04",
+      "to_bus": "B05",
+      "length_km": 3.0,
+      "r_ohm_per_km": 0.65,
+      "x_ohm_per_km": 0.1,
+      "c_nf_per_km": 210.0,
+      "max_i_ka": 0.06,
+      "max_loading_percent": 100.0
+    },
+    {
+      "id": "L_B05_B06",
+      "from_bus": "B05",
+      "to_bus": "B06",
+      "length_km": 2.5,
+      "r_ohm_per_km": 0.65,
+      "x_ohm_per_km": 0.1,
+      "c_nf_per_km": 210.0,
+      "max_i_ka": 0.06,
+      "max_loading_percent": 100.0
+    },
+    {
+      "id": "L_B06_B07",
+      "from_bus": "B06",
+      "to_bus": "B07",
+      "length_km": 2.0,
+      "r_ohm_per_km": 0.65,
+      "x_ohm_per_km": 0.1,
+      "c_nf_per_km": 210.0,
+      "max_i_ka": 0.05,
+      "max_loading_percent": 100.0
+    },
+    {
+      "id": "L_B07_B08",
+      "from_bus": "B07",
+      "to_bus": "B08",
+      "length_km": 2.0,
+      "r_ohm_per_km": 0.65,
+      "x_ohm_per_km": 0.1,
+      "c_nf_per_km": 210.0,
+      "max_i_ka": 0.05,
+      "max_loading_percent": 100.0
+    }
+  ],
+  "load": [
+    {
+      "id": "LD_B04",
+      "bus": "B04",
+      "p_mw": 1.2,
+      "q_mvar": 0.35
+    },
+    {
+      "id": "LD_B05",
+      "bus": "B05",
+      "p_mw": 1.4,
+      "q_mvar": 0.42
+    },
+    {
+      "id": "LD_B06",
+      "bus": "B06",
+      "p_mw": 1.4,
+      "q_mvar": 0.42
+    },
+    {
+      "id": "LD_B07",
+      "bus": "B07",
+      "p_mw": 1.2,
+      "q_mvar": 0.36
+    },
+    {
+      "id": "LD_B08",
+      "bus": "B08",
+      "p_mw": 1.3,
+      "q_mvar": 0.39
+    }
+  ],
+  "generator": [
+    {
+      "id": "PV_B06",
+      "mode": "pq",
+      "bus": "B06",
+      "p_mw": 0.3,
+      "q_mvar": 0.0
+    }
+  ]
+}
+
