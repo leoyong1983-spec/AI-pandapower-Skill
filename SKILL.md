@@ -2,6 +2,7 @@
 name: ai-pandapower-skill
 description: Validate grid JSON input, run pandapower load flow, classify input/convergence/island failures, detect voltage and thermal violations, and export evidence artifacts.
 version: 0.2.0
+license: AGPL-3.0
 ---
 
 ## Purpose
@@ -9,6 +10,8 @@ version: 0.2.0
 Use this skill when an agent needs to control pandapower through a script-first workflow and produce auditable evidence files.
 
 This is a Skill-first baseline for Trinity evidence intake. The release gate is evidence reliability, not broad pandapower feature coverage.
+
+This project is released under the GNU Affero General Public License v3.0. See `LICENSE`.
 
 ## Workflow
 

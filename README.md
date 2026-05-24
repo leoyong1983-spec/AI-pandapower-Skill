@@ -125,3 +125,7 @@ This baseline can enter the Trinity main line only when these commands pass:
 ```
 
 The missing dependency path must also work with a Python environment that does not have pandapower installed.
+
+## License
+
+This project is released under the GNU Affero General Public License v3.0. See [LICENSE](LICENSE).

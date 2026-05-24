@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
 REQUIRED_FILES = (
     "SKILL.md",
     "README.md",
+    "LICENSE",
     "requirements.txt",
     "ai_pandapower_skill/runner.py",
     "scripts/run_grid_assessment.py",
@@ -56,4 +57,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
