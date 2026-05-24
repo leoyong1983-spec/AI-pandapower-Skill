@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -10,6 +12,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from ai_pandapower_skill import assess_grid
+
+
+ARTIFACT_NAMES = ("grid_result.json", "violations.json", "grid_summary.md", "calculation_log.md")
+LOCAL_ABSOLUTE_PATH = re.compile(r"(^|[^A-Za-z])[A-Za-z]:[\\/]")
 
 
 CASES = [
@@ -46,6 +52,13 @@ CASES = [
         "classification": "power_flow_not_converged",
         "checks": {},
     },
+    {
+        "name": "missing_dependency",
+        "input": "examples/demo_grid.json",
+        "classification": "missing_dependency",
+        "checks": {},
+        "force_missing_dependency": True,
+    },
 ]
 
 
@@ -59,12 +72,23 @@ def main() -> int:
     report = []
     for case in CASES:
         output_dir = out_root / case["name"]
-        result = assess_grid(ROOT / case["input"], output_dir)
+        old_force = os.environ.get("AI_PANDAPOWER_FORCE_MISSING_DEPENDENCY")
+        if case.get("force_missing_dependency"):
+            os.environ["AI_PANDAPOWER_FORCE_MISSING_DEPENDENCY"] = "1"
+        else:
+            os.environ.pop("AI_PANDAPOWER_FORCE_MISSING_DEPENDENCY", None)
+        try:
+            result = assess_grid(ROOT / case["input"], output_dir)
+        finally:
+            if old_force is None:
+                os.environ.pop("AI_PANDAPOWER_FORCE_MISSING_DEPENDENCY", None)
+            else:
+                os.environ["AI_PANDAPOWER_FORCE_MISSING_DEPENDENCY"] = old_force
         row = {
             "case": case["name"],
             "status": result["status"],
             "classification": result["classification"],
-            "output_dir": str(output_dir),
+            "output_dir": _relative(output_dir),
         }
         if result["classification"] != case["classification"]:
             failures.append(f"{case['name']}: expected {case['classification']}, got {result['classification']}")
@@ -74,12 +98,26 @@ def main() -> int:
                 failures.append(f"{case['name']}: expected at least one line overload")
             if summary["voltage_violation_count"] < case["checks"].get("voltage_violation_count_min", 0):
                 failures.append(f"{case['name']}: expected at least one voltage violation")
+        for artifact_name in ARTIFACT_NAMES:
+            artifact_path = output_dir / artifact_name
+            if not artifact_path.exists():
+                failures.append(f"{case['name']}: missing artifact {artifact_name}")
+                continue
+            artifact_text = artifact_path.read_text(encoding="utf-8")
+            if LOCAL_ABSOLUTE_PATH.search(artifact_text):
+                failures.append(f"{case['name']}: local absolute path leaked in {artifact_name}")
         report.append(row)
 
     print(json.dumps({"cases": report, "failures": failures}, ensure_ascii=False, indent=2))
     return 1 if failures else 0
 
 
+def _relative(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        return path.name
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
-

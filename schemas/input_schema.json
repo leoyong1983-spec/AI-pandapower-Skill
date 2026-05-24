@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-pandapower-skill/input_schema.json",
+  "title": "AI pandapower grid input",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["bus", "grid_connection"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sn_mva": { "type": "number" },
+        "frequency_hz": { "type": "number" },
+        "thermal_limit_percent": { "type": "number" },
+        "voltage_limits_pu": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "min": { "type": "number" },
+            "max": { "type": "number" }
+          }
+        },
+        "runpp": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "algorithm": { "type": "string" },
+            "max_iteration": { "type": "integer", "minimum": 0 },
+            "init": { "type": "string" },
+            "enforce_q_lims": { "type": "boolean" },
+            "numba": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "bus": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "vn_kv"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string" },
+          "vn_kv": { "type": "number" },
+          "min_vm_pu": { "type": "number" },
+          "max_vm_pu": { "type": "number" },
+          "in_service": { "type": "boolean" }
+        }
+      }
+    },
+    "grid_connection": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "bus", "vm_pu"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "bus": { "type": "string", "minLength": 1 },
+          "vm_pu": { "type": "number" },
+          "va_degree": { "type": "number" },
+          "in_service": { "type": "boolean" }
+        }
+      }
+    },
+    "line": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "from_bus", "to_bus", "length_km"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "from_bus": { "type": "string", "minLength": 1 },
+          "to_bus": { "type": "string", "minLength": 1 },
+          "length_km": { "type": "number", "exclusiveMinimum": 0 },
+          "std_type": { "type": "string" },
+          "r_ohm_per_km": { "type": "number" },
+          "x_ohm_per_km": { "type": "number" },
+          "c_nf_per_km": { "type": "number" },
+          "g_us_per_km": { "type": "number" },
+          "max_i_ka": { "type": "number" },
+          "max_loading_percent": { "type": "number" },
+          "in_service": { "type": "boolean" }
+        },
+        "anyOf": [
+          { "required": ["std_type"] },
+          { "required": ["r_ohm_per_km", "x_ohm_per_km", "c_nf_per_km", "max_i_ka"] }
+        ]
+      }
+    },
+    "transformer": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "hv_bus", "lv_bus", "sn_mva", "vn_hv_kv", "vn_lv_kv", "vk_percent", "vkr_percent", "pfe_kw", "i0_percent"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "hv_bus": { "type": "string", "minLength": 1 },
+          "lv_bus": { "type": "string", "minLength": 1 },
+          "sn_mva": { "type": "number" },
+          "vn_hv_kv": { "type": "number" },
+          "vn_lv_kv": { "type": "number" },
+          "vk_percent": { "type": "number" },
+          "vkr_percent": { "type": "number" },
+          "pfe_kw": { "type": "number" },
+          "i0_percent": { "type": "number" },
+          "shift_degree": { "type": "number" },
+          "max_loading_percent": { "type": "number" },
+          "in_service": { "type": "boolean" }
+        }
+      }
+    },
+    "load": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "bus", "p_mw"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "bus": { "type": "string", "minLength": 1 },
+          "p_mw": { "type": "number" },
+          "q_mvar": { "type": "number" },
+          "in_service": { "type": "boolean" }
+        }
+      }
+    },
+    "generator": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "bus", "p_mw"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "bus": { "type": "string", "minLength": 1 },
+          "mode": { "type": "string", "enum": ["pq", "pv"] },
+          "p_mw": { "type": "number" },
+          "q_mvar": { "type": "number" },
+          "vm_pu": { "type": "number" },
+          "min_q_mvar": { "type": "number" },
+          "max_q_mvar": { "type": "number" },
+          "min_p_mw": { "type": "number" },
+          "max_p_mw": { "type": "number" },
+          "in_service": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}
+

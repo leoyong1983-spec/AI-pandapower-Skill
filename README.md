@@ -2,6 +2,8 @@
 
 This repository provides a small, auditable pandapower automation layer for grid validation, load-flow calculation, violation detection, and evidence export.
 
+The current release is a baseline Trinity integration gate. It intentionally covers load-flow and violation review only; short circuit, protection settings, dynamic stability, complex N-1, and GIS import remain out of scope for this hardening pass.
+
 ## Current Capability
 
 Supported input sections:
@@ -22,6 +24,7 @@ Calculations and checks:
 - Detects transformer loading violations.
 - Classifies failures as:
   - `missing_parameter`
+  - `missing_dependency`
   - `input_error`
   - `island_network`
   - `power_flow_not_converged`
@@ -41,7 +44,7 @@ These files are always written, including failure cases, so downstream evidence 
 The local workspace was validated with Python 3.12 and pandapower 3.4.0.
 
 ```powershell
-C:\Users\HUAWEI\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m venv .venv
+python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
@@ -66,6 +69,26 @@ Acceptance cases:
 - `input_error`: element references an unknown bus.
 - `island_network`: unsupplied bus island.
 - `non_convergent`: valid network with zero allowed iterations, forcing `runpp` non-convergence classification.
+- `missing_dependency`: dependency failure path with fixed artifacts.
+
+## Readiness Check
+
+```powershell
+.\.venv\Scripts\python.exe scripts\readiness_check.py
+```
+
+The readiness check verifies required files, JSON schema readability, runner import without pandapower side effects, and the installed pandapower version.
+
+## Evidence Rules
+
+Public artifacts use relative paths and `source_id`; they must not contain local absolute paths such as drive-letter paths. The acceptance runner scans every emitted artifact for local path leakage.
+
+The fixed public artifact set is:
+
+- `grid_result.json`: run manifest and classification.
+- `violations.json`: machine-readable violations.
+- `grid_summary.md`: human-readable summary.
+- `calculation_log.md`: calculation steps without local absolute paths.
 
 ## Input Notes
 
@@ -92,13 +115,13 @@ Generators support:
 - `mode: "pq"`: creates a pandapower `sgen`.
 - `mode: "pv"`: creates a pandapower `gen`.
 
-## Roadmap
+## Release Gate
 
-The current interface is the minimum stable calculation contract. The next modules should reuse the same input validation and evidence export pattern:
+This baseline can enter the Trinity main line only when these commands pass:
 
-- Short-circuit calculation: add IEC 60909 inputs and `runpp` pre-check dependency.
-- Protection setting: add feeder/relay/fuse input and generate setting tables.
-- Dynamic stability: define a separate model adapter because pandapower is steady-state first.
-- Complex N-1: add scenario runner, contingency matrix, and per-contingency artifacts.
-- Real-grid GIS import: add import adapters that normalize GIS/CIM/GeoJSON into the current JSON contract.
+```powershell
+.\.venv\Scripts\python.exe scripts\run_acceptance.py
+.\.venv\Scripts\python.exe scripts\readiness_check.py
+```
 
+The missing dependency path must also work with a Python environment that does not have pandapower installed.

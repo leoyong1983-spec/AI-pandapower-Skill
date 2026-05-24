@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-pandapower-skill/output_schema.json",
+  "title": "AI pandapower artifact output",
+  "oneOf": [
+    { "$ref": "#/$defs/grid_result" },
+    { "$ref": "#/$defs/violations" }
+  ],
+  "$defs": {
+    "grid_result": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["schema_version", "status", "classification", "input_file", "source_id", "output_dir", "artifacts", "elapsed_s"],
+      "properties": {
+        "schema_version": { "type": "string" },
+        "status": { "type": "string", "enum": ["success", "failed"] },
+        "classification": {
+          "type": "string",
+          "enum": ["success", "missing_parameter", "missing_dependency", "input_error", "island_network", "power_flow_not_converged", "runtime_error"]
+        },
+        "created_at_utc": { "type": "string" },
+        "input_file": { "type": "string" },
+        "source_id": { "type": "string" },
+        "output_dir": { "type": "string" },
+        "pandapower_version": { "type": ["string", "null"] },
+        "artifacts": {
+          "type": "object",
+          "required": ["grid_result.json", "violations.json", "grid_summary.md", "calculation_log.md"],
+          "properties": {
+            "grid_result.json": { "type": "string" },
+            "violations.json": { "type": "string" },
+            "grid_summary.md": { "type": "string" },
+            "calculation_log.md": { "type": "string" }
+          }
+        },
+        "network": { "type": "object" },
+        "runpp": { "type": "object" },
+        "summary": { "type": "object" },
+        "error": { "type": "object" },
+        "elapsed_s": { "type": "number" }
+      }
+    },
+    "violations": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["schema_version", "status", "counts", "voltage", "line_loading", "transformer_loading"],
+      "properties": {
+        "schema_version": { "type": "string" },
+        "status": { "type": "string", "enum": ["not_evaluated", "no_violations", "violations_found"] },
+        "counts": {
+          "type": "object",
+          "required": ["voltage", "line_loading", "transformer_loading", "total"],
+          "properties": {
+            "voltage": { "type": "integer" },
+            "line_loading": { "type": "integer" },
+            "transformer_loading": { "type": "integer" },
+            "total": { "type": "integer" }
+          }
+        },
+        "voltage": { "type": "array", "items": { "type": "object" } },
+        "line_loading": { "type": "array", "items": { "type": "object" } },
+        "transformer_loading": { "type": "array", "items": { "type": "object" } }
+      }
+    }
+  }
+}
+

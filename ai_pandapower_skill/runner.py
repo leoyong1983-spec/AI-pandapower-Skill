@@ -1,26 +1,28 @@
 from __future__ import annotations
 
 import argparse
+import importlib
+import importlib.metadata
 import json
 import math
+import os
 import time
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
-import pandapower as pp
-from pandapower.auxiliary import LoadflowNotConverged
 
-
-SCHEMA_VERSION = "0.1.0"
+SCHEMA_VERSION = "0.2.0"
 SUCCESS = "success"
 INPUT_ERROR = "input_error"
 MISSING_PARAMETER = "missing_parameter"
+MISSING_DEPENDENCY = "missing_dependency"
 ISLAND_NETWORK = "island_network"
 POWER_FLOW_NOT_CONVERGED = "power_flow_not_converged"
 RUNTIME_ERROR = "runtime_error"
+_PANDAPOWER: Any | None = None
+_LOADFLOW_NOT_CONVERGED: type[Exception] | None = None
 
 
 class GridAssessmentError(Exception):
@@ -33,6 +35,10 @@ class GridAssessmentError(Exception):
 
 class MissingParameterError(GridAssessmentError):
     classification = MISSING_PARAMETER
+
+
+class MissingDependencyError(GridAssessmentError):
+    classification = MISSING_DEPENDENCY
 
 
 class InputDataError(GridAssessmentError):
@@ -66,17 +72,19 @@ def assess_grid(input_path: str | Path, output_dir: str | Path | None = None) ->
 
     try:
         log.append(f"Started: {_utc_now()}")
-        log.append(f"Input file: {input_path.resolve()}")
+        log.append(f"Input source: {_public_path(input_path)}")
         data = _load_json(input_path)
         settings = _settings(data)
         log.append("Input JSON parsed.")
+        pp_module, loadflow_not_converged = _load_dependencies()
+        log.append(f"Dependency check passed: pandapower {pp_module.__version__}.")
 
-        net, id_maps = _build_network(data, log)
+        net, id_maps = _build_network(data, log, pp_module)
         _check_islands(data, id_maps, log)
 
-        runpp_meta = _run_power_flow(net, settings, log)
+        runpp_meta = _run_power_flow(net, settings, log, pp_module, loadflow_not_converged)
         violations = _collect_violations(net, id_maps, settings)
-        result = _success_result(input_path, output_dir, net, runpp_meta, violations, started)
+        result = _success_result(input_path, output_dir, net, runpp_meta, violations, started, pp_module.__version__)
         log.append("Classification: success")
     except GridAssessmentError as exc:
         result = _failure_result(input_path, output_dir, exc, started, data, net)
@@ -99,7 +107,7 @@ def assess_grid(input_path: str | Path, output_dir: str | Path | None = None) ->
 
 def _load_json(path: Path) -> dict[str, Any]:
     if not path.exists():
-        raise InputDataError("Input file does not exist.", {"path": str(path)})
+        raise InputDataError("Input file does not exist.", {"path": _public_path(path)})
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
@@ -133,7 +141,38 @@ def _settings(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _build_network(data: dict[str, Any], log: list[str]) -> tuple[Any, dict[str, Any]]:
+def _load_dependencies() -> tuple[Any, type[Exception]]:
+    global _PANDAPOWER, _LOADFLOW_NOT_CONVERGED
+    if os.environ.get("AI_PANDAPOWER_FORCE_MISSING_DEPENDENCY") == "1":
+        raise MissingDependencyError(
+            "Required dependency is unavailable: pandapower.",
+            {
+                "missing": ["pandapower"],
+                "install": "python -m pip install -r requirements.txt",
+                "simulated": True,
+            },
+        )
+    if _PANDAPOWER is not None and _LOADFLOW_NOT_CONVERGED is not None:
+        return _PANDAPOWER, _LOADFLOW_NOT_CONVERGED
+    try:
+        _PANDAPOWER = importlib.import_module("pandapower")
+        auxiliary = importlib.import_module("pandapower.auxiliary")
+        _LOADFLOW_NOT_CONVERGED = auxiliary.LoadflowNotConverged
+    except ModuleNotFoundError as exc:
+        missing_name = exc.name or "pandapower"
+        raise MissingDependencyError(
+            "Required Python dependency is not installed.",
+            {"missing": [missing_name], "install": "python -m pip install -r requirements.txt"},
+        ) from exc
+    except ImportError as exc:
+        raise MissingDependencyError(
+            "Required Python dependency could not be imported.",
+            {"missing": ["pandapower"], "message": str(exc), "install": "python -m pip install -r requirements.txt"},
+        ) from exc
+    return _PANDAPOWER, _LOADFLOW_NOT_CONVERGED
+
+
+def _build_network(data: dict[str, Any], log: list[str], pp_module: Any) -> tuple[Any, dict[str, Any]]:
     settings = _settings(data)
     buses = _section(data, "bus", required=True)
     lines = _section(data, "line", required=False)
@@ -144,7 +183,7 @@ def _build_network(data: dict[str, Any], log: list[str]) -> tuple[Any, dict[str,
     if not grids:
         raise MissingParameterError("At least one grid_connection entry is required.")
 
-    net = pp.create_empty_network(sn_mva=settings["sn_mva"], f_hz=settings["frequency_hz"])
+    net = pp_module.create_empty_network(sn_mva=settings["sn_mva"], f_hz=settings["frequency_hz"])
     id_maps: dict[str, Any] = {
         "bus": {},
         "line": {},
@@ -161,7 +200,7 @@ def _build_network(data: dict[str, Any], log: list[str]) -> tuple[Any, dict[str,
         item_id = _id(item, "bus")
         _ensure_new(id_maps["bus"], item_id, "bus")
         vn_kv = _required_float(item, "vn_kv", f"bus[{item_id}]")
-        idx = pp.create_bus(
+        idx = pp_module.create_bus(
             net,
             vn_kv=vn_kv,
             name=item.get("name", item_id),
@@ -176,7 +215,7 @@ def _build_network(data: dict[str, Any], log: list[str]) -> tuple[Any, dict[str,
         item_id = _id(item, "grid_connection")
         _ensure_new(id_maps["grid_connection"], item_id, "grid_connection")
         bus = _bus_ref(item, "bus", id_maps)
-        idx = pp.create_ext_grid(
+        idx = pp_module.create_ext_grid(
             net,
             bus=bus,
             vm_pu=_required_float(item, "vm_pu", f"grid_connection[{item_id}]"),
@@ -189,7 +228,7 @@ def _build_network(data: dict[str, Any], log: list[str]) -> tuple[Any, dict[str,
     for item in trafos:
         item_id = _id(item, "transformer")
         _ensure_new(id_maps["transformer"], item_id, "transformer")
-        idx = pp.create_transformer_from_parameters(
+        idx = pp_module.create_transformer_from_parameters(
             net,
             hv_bus=_bus_ref(item, "hv_bus", id_maps),
             lv_bus=_bus_ref(item, "lv_bus", id_maps),
@@ -220,7 +259,7 @@ def _build_network(data: dict[str, Any], log: list[str]) -> tuple[Any, dict[str,
         if length_km <= 0:
             raise InputDataError("Line length_km must be positive.", {"line": item_id, "length_km": length_km})
         if "std_type" in item:
-            idx = pp.create_line(
+            idx = pp_module.create_line(
                 net,
                 from_bus=from_bus,
                 to_bus=to_bus,
@@ -230,7 +269,7 @@ def _build_network(data: dict[str, Any], log: list[str]) -> tuple[Any, dict[str,
                 in_service=bool(item.get("in_service", True)),
             )
         else:
-            idx = pp.create_line_from_parameters(
+            idx = pp_module.create_line_from_parameters(
                 net,
                 from_bus=from_bus,
                 to_bus=to_bus,
@@ -251,7 +290,7 @@ def _build_network(data: dict[str, Any], log: list[str]) -> tuple[Any, dict[str,
     for item in loads:
         item_id = _id(item, "load")
         _ensure_new(id_maps["load"], item_id, "load")
-        idx = pp.create_load(
+        idx = pp_module.create_load(
             net,
             bus=_bus_ref(item, "bus", id_maps),
             p_mw=_required_float(item, "p_mw", f"load[{item_id}]"),
@@ -267,7 +306,7 @@ def _build_network(data: dict[str, Any], log: list[str]) -> tuple[Any, dict[str,
         bus = _bus_ref(item, "bus", id_maps)
         mode = str(item.get("mode", "pq")).lower()
         if mode == "pv":
-            idx = pp.create_gen(
+            idx = pp_module.create_gen(
                 net,
                 bus=bus,
                 p_mw=_required_float(item, "p_mw", f"generator[{item_id}]"),
@@ -279,7 +318,7 @@ def _build_network(data: dict[str, Any], log: list[str]) -> tuple[Any, dict[str,
                 if column in item:
                     net.gen.at[idx, column] = _required_float(item, column, f"generator[{item_id}]")
         elif mode == "pq":
-            idx = pp.create_sgen(
+            idx = pp_module.create_sgen(
                 net,
                 bus=bus,
                 p_mw=_required_float(item, "p_mw", f"generator[{item_id}]"),
@@ -342,11 +381,17 @@ def _check_islands(data: dict[str, Any], id_maps: dict[str, Any], log: list[str]
     log.append("Island check passed: all buses are connected to an in-service grid_connection.")
 
 
-def _run_power_flow(net: Any, settings: dict[str, Any], log: list[str]) -> dict[str, Any]:
+def _run_power_flow(
+    net: Any,
+    settings: dict[str, Any],
+    log: list[str],
+    pp_module: Any,
+    loadflow_not_converged: type[Exception],
+) -> dict[str, Any]:
     options = settings["runpp"]
     started = time.perf_counter()
     try:
-        pp.runpp(
+        pp_module.runpp(
             net,
             algorithm=options["algorithm"],
             max_iteration=options["max_iteration"],
@@ -354,7 +399,7 @@ def _run_power_flow(net: Any, settings: dict[str, Any], log: list[str]) -> dict[
             enforce_q_lims=options["enforce_q_lims"],
             numba=options["numba"],
         )
-    except LoadflowNotConverged as exc:
+    except loadflow_not_converged as exc:
         raise PowerFlowNotConvergedError(
             "pandapower runpp did not converge.",
             {"algorithm": options["algorithm"], "max_iteration": options["max_iteration"], "message": str(exc)},
@@ -461,15 +506,17 @@ def _success_result(
     runpp_meta: dict[str, Any],
     violations: dict[str, Any],
     started: float,
+    pandapower_version: str,
 ) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "status": "success",
         "classification": SUCCESS,
         "created_at_utc": _utc_now(),
-        "input_file": str(input_path.resolve()),
-        "output_dir": str(output_dir.resolve()),
-        "pandapower_version": pp.__version__,
+        "input_file": _public_path(input_path),
+        "source_id": input_path.name,
+        "output_dir": _public_path(output_dir),
+        "pandapower_version": pandapower_version,
         "network": {
             "bus_count": int(len(net.bus)),
             "line_count": int(len(net.line)),
@@ -507,9 +554,10 @@ def _failure_result(
         "status": "failed",
         "classification": exc.classification,
         "created_at_utc": _utc_now(),
-        "input_file": str(input_path.resolve()),
-        "output_dir": str(output_dir.resolve()),
-        "pandapower_version": pp.__version__,
+        "input_file": _public_path(input_path),
+        "source_id": input_path.name,
+        "output_dir": _public_path(output_dir),
+        "pandapower_version": _pandapower_version(),
         "error": {
             "message": str(exc),
             "details": _to_builtin(exc.details),
@@ -625,7 +673,7 @@ def _render_log(log: list[str], result: dict[str, Any], artifacts: dict[str, Pat
         ]
     )
     for name, path in artifacts.items():
-        lines.append(f"- {name}: `{path.resolve()}`")
+        lines.append(f"- {name}: `{_public_path(path)}`")
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -697,12 +745,12 @@ def _clean_float(value: Any) -> float | None:
         result = float(value)
     except (TypeError, ValueError):
         return None
-    if not math.isfinite(result) or pd.isna(result):
+    if not math.isfinite(result):
         return None
     return result
 
 
-def _element_limit(table: pd.DataFrame, idx: int, default: float) -> float:
+def _element_limit(table: Any, idx: int, default: float) -> float:
     if "max_loading_percent" in table.columns:
         limit = _clean_float(table.at[idx, "max_loading_percent"])
         if limit is not None:
@@ -740,7 +788,7 @@ def _artifact_paths(output_dir: Path) -> dict[str, Path]:
 
 
 def _artifact_manifest(output_dir: Path) -> dict[str, str]:
-    return {name: str(path.resolve()) for name, path in _artifact_paths(output_dir).items()}
+    return {name: _public_path(path) for name, path in _artifact_paths(output_dir).items()}
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -760,8 +808,29 @@ def _to_builtin(value: Any) -> Any:
         except Exception:
             pass
     if isinstance(value, Path):
-        return str(value)
+        return _public_path(value)
     return value
+
+
+def _public_path(path: Path | str) -> str:
+    candidate = Path(path)
+    try:
+        resolved = candidate.resolve()
+        try:
+            return resolved.relative_to(Path.cwd().resolve()).as_posix()
+        except ValueError:
+            return candidate.name or "external_source"
+    except OSError:
+        return candidate.name or "external_source"
+
+
+def _pandapower_version() -> str | None:
+    if _PANDAPOWER is not None:
+        return str(getattr(_PANDAPOWER, "__version__", "unknown"))
+    try:
+        return importlib.metadata.version("pandapower")
+    except importlib.metadata.PackageNotFoundError:
+        return None
 
 
 def _utc_now() -> str:
